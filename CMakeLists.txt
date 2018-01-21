@@ -10,7 +10,8 @@ configure_file(test4.txt test4.txt COPYONLY)
 
 add_library(fixed_real "fixedreal.h" "fixedreal.cpp")
 
-add_definitions(--std=gnu++17 -g -DLOG_LEVEL=DEBUG)
+add_definitions(--std=c++14 -g -DLOG_LEVEL=DEBUG)
 
 add_executable(${PROJECT_NAME} "main.cpp" "logger.h" "ts_printf.h")
 target_link_libraries(${PROJECT_NAME} fixed_real)
+target_link_libraries(${PROJECT_NAME} gmpxx gmp)

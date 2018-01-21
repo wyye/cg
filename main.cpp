@@ -10,17 +10,19 @@
 #include <cassert>
 #include <cmath>
 
-#include "fixedreal.h"
+#include <gmpxx.h>
+
+//#include "fixedreal.h"
 #include "logger.h"
 
 struct Segment;
 
 struct Point {
-    explicit Point (double x = 0,
-                    double y = 0) :
+    explicit Point (mpq_class x = 0,
+                    mpq_class y = 0) :
         x(x), y(y)
     {}
-    double x, y;
+    mpq_class x, y;
 };
 
 std::ostream& operator<<(std::ostream & stream, const Point & point) {
@@ -39,7 +41,7 @@ struct SegPoint {
 
 bool
 operator == (const Point & p1, const Point & p2) {
-    return std::abs(p1.x - p2.x) <= 0.001 && std::abs(p1.y - p2.y) <= 0.001;
+    return (p1.x == p2.x) && (p1.y == p2.y);
 }
 
 
@@ -50,22 +52,12 @@ operator != (const Point & p1, const Point & p2) {
 
 bool
 operator < (const Point & p1, const Point & p2) {
-    if (p1 == p2) return false;
-    if (std::abs(p1.y - p2.y) <= 0.001) {
-        return p1.x < p2.x;
-    } else {
-        return p1.y < p2.y;
-    }
+    return p1.y > p2.y || ((p1.y == p2.y) && p1.x < p2.x);
 }
 
 bool
 operator > (const Point & p1, const Point & p2) {
-    if (p1 == p2) return false;
-    if (std::abs(p1.y - p2.y) <= 0.001) {
-        return p1.x > p2.x;
-    } else {
-        return p1.y > p2.y;
-    }
+    return p1.y < p2.y || ((p1.y == p2.y) && p1.x > p2.x);
 }
 
 bool
@@ -85,7 +77,7 @@ collinear(const Point & a, const Point & b, const Point & c) {
 
 // point a in between
 bool
-between(double a, double b, double c) {
+between(mpq_class a, mpq_class b, mpq_class c) {
     return (b <= a) && (a <= c);
 }
 
@@ -125,37 +117,37 @@ std::ostream& operator<<(std::ostream & stream, const Segment & segment) {
  */
 
 int
-compareSegments(const Segment & a, const Segment & b, const double x, const double y) {
+compareSegments(const Segment & a, const Segment & b, const mpq_class x, const mpq_class y) {
     // find point of intersection with horisontal line y
     // (x - x1) * (y2 - y1) = (x2 - x1) * (y - y1)
-    double a_x = std::abs(a.u->y - a.d->y) < 0.001 ? a.u->x :
+    mpq_class a_x = (a.u->y == a.d->y) ? a.u->x :
                  (y - a.u->y) * (a.d->x - a.u->x) / (a.d->y - a.u->y) + a.u->x;
-    double b_x = std::abs(b.u->y - b.d->y) < 0.001 ? b.u->x :
+    mpq_class b_x = (b.u->y == b.d->y) ? b.u->x :
                  (y - b.u->y) * (b.d->x - b.u->x) / (b.d->y - b.u->y) + b.u->x;
-    if (std::abs(a_x - b_x) < 0.001) { // a and b from common point on y
+    if (a_x == b_x) { // a and b from common point on y
         // compare angles
-        if (std::abs(y - a.d->y) < 0.001 && std::abs(y - b.d->y) < 0.001) {
+        if ((y == a.d->y) && (y == b.d->y)) {
             return 0;
-        } else if (std::abs(y - a.d->y) < 0.001) { // if a horisontal, b can't be horisontal, so its angle less, b < a
+        } else if (y == a.d->y) { // if a horisontal, b can't be horisontal, so its angle less, b < a
             return 1;
-        } else if (std::abs(y - b.d->y) < 0.001) { // if b horisontal, a can't be horisontal, so its angle less, a < b
+        } else if (y == b.d->y) { // if b horisontal, a can't be horisontal, so its angle less, a < b
             return -1;
         }
 
         int res;
         if (a_x <= x) {
-            double a_tg = (a.d->x - a_x) / (y - a.d->y);
-            double b_tg = (b.d->x - b_x) / (y - b.d->y); // delta y will be always positive
-            res = std::abs(a_tg - b_tg) < 0.001 ? 0 : a_tg < b_tg ? -1 : 1;
+            mpq_class a_tg = (a.d->x - a_x) / (y - a.d->y);
+            mpq_class b_tg = (b.d->x - b_x) / (y - b.d->y); // delta y will be always positive
+            res = a_tg == b_tg ? 0 : a_tg < b_tg ? -1 : 1;
         } else {
-            double a_tg = (a.u->x - a_x) / (a.u->y - y);
-            double b_tg = (b.u->x - b_x) / (b.u->y - y); // delta y will be always positive
-            res = std::abs(a_tg - b_tg) < 0.001 ? 0 : a_tg < b_tg ? -1 : 1;
+            mpq_class a_tg = (a.u->x - a_x) / (a.u->y - y);
+            mpq_class b_tg = (b.u->x - b_x) / (b.u->y - y); // delta y will be always positive
+            res = (a_tg == b_tg) ? 0 : a_tg < b_tg ? -1 : 1;
         }
 
         return res;
     } else { // a and b from different points on y
-        return std::abs(a_x - b_x) < 0.001 ? 0 : (a_x < b_x) ? -1 : 1;
+        return (a_x == b_x) ? 0 : (a_x < b_x) ? -1 : 1;
     }
 }
 
@@ -165,17 +157,17 @@ struct SegmentComparator {
     bool operator() (const Segment* a, const Segment* b) {
         return compareSegments(*a, *b, *x, *y) < 0;
     }
-    std::shared_ptr<double> x = std::make_shared<double>(0);
-    std::shared_ptr<double> y = std::make_shared<double>(0);
+    std::shared_ptr<mpq_class> x = std::make_shared<mpq_class>(0);
+    std::shared_ptr<mpq_class> y = std::make_shared<mpq_class>(0);
 };
 using State = std::set<Segment*, SegmentComparator>;
 
 bool
 findIntersection(const Segment & sa, const Segment & sb, Point & p) {
-    double cross11 = (sa.u->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.u->y - sb.u->y)*(sb.d->x - sb.u->x);
-    double cross12 = (sa.d->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.d->y - sb.u->y)*(sb.d->x - sb.u->x);
-    double cross22 = (sb.u->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.u->y - sa.u->y)*(sa.u->x - sa.d->x);
-    double cross21 = (sb.d->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.d->y - sa.u->y)*(sa.u->x - sa.d->x);
+    mpq_class cross11 = (sa.u->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.u->y - sb.u->y)*(sb.d->x - sb.u->x);
+    mpq_class cross12 = (sa.d->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.d->y - sb.u->y)*(sb.d->x - sb.u->x);
+    mpq_class cross22 = (sb.u->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.u->y - sa.u->y)*(sa.u->x - sa.d->x);
+    mpq_class cross21 = (sb.d->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.d->y - sa.u->y)*(sa.u->x - sa.d->x);
     if (cross11*cross12 <= 0 && cross21*cross22 <= 0) {
 //         solution of
 //
@@ -452,8 +444,8 @@ readData(std::ifstream & ifs,
         ifs >> x1 >> y1 >> x2 >> y2;
         if (ifs.eof()) break;
 
-        Point p1(x1, y1);
-        Point p2(x2, y2);
+        Point p1 = Point(mpq_class(x1), mpq_class(y1));
+        Point p2 = Point(mpq_class(x2), mpq_class(y2));
         assert(p1 != p2);
 
         if (p1 > p2) {
@@ -495,7 +487,7 @@ int main(int argc, char** argv)
 
     for(Points::const_iterator it = points.begin(); it != points.end(); ++it) {
         if (!it->second->C.empty()) {
-            ofs << it->first.x << " " << it->first.y << std::endl;
+            ofs << it->first.x.get_d() << " " << it->first.y.get_d() << std::endl;
         }
     }
     ifs.close();
