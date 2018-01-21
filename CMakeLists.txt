@@ -1,11 +1,16 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.4)
 
 project(line-intersection)
 
 configure_file(test.txt test.txt COPYONLY)
+configure_file(test1.txt test1.txt COPYONLY)
+configure_file(test2.txt test2.txt COPYONLY)
+configure_file(test3.txt test3.txt COPYONLY)
+configure_file(test4.txt test4.txt COPYONLY)
 
 add_library(fixed_real "fixedreal.h" "fixedreal.cpp")
 
-add_executable(${PROJECT_NAME} "main.cpp")
-set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
+add_definitions(--std=gnu++17 -g -DLOG_LEVEL=DEBUG)
+
+add_executable(${PROJECT_NAME} "main.cpp" "logger.h" "ts_printf.h")
 target_link_libraries(${PROJECT_NAME} fixed_real)

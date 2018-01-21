@@ -27,7 +27,16 @@ ax.autoscale()
 ax.margins(0.1)
 #pl.show()
 pl.scatter(x,y)
-pl.show()
 
+intersections_x = []
+intersections_y = []
+with open(sys.argv[2], 'r') as f:
+    for line in f:
+        data = map(float, line.split())
+        intersections_x.append(data[0])
+        intersections_y.append(data[1])
+
+pl.scatter(intersections_x, intersections_y, color='r')
+pl.show()
 #draw points
 

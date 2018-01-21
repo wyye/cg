@@ -6,19 +6,29 @@
 #include <fstream>
 #include <tuple>
 #include <map>
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 
 #include "fixedreal.h"
+#include "logger.h"
 
 struct Segment;
 
 struct Point {
-    explicit Point (FixedReal<6> x = makeFixedReal(0),
-                    FixedReal<6> y = makeFixedReal(0)) :
+    explicit Point (double x = 0,
+                    double y = 0) :
         x(x), y(y)
     {}
-    FixedReal<6> x, y;
+    double x, y;
 };
+
+std::ostream& operator<<(std::ostream & stream, const Point & point) {
+    stream << "(" << point.x << ", " << point.y << ")";
+    return stream;
+}
+
+
 struct SegPoint {
 
     std::set<Segment*> L;
@@ -26,34 +36,46 @@ struct SegPoint {
     std::set<Segment*> C;
 };
 
-bool
-operator < (const Point & p1, const Point & p2) {
-    return (p1.y > p2.y) || ((p1.y == p2.y) && (p1.x < p2.x));
-}
-
-bool
-operator <= (const Point & p1, const Point & p2) {
-    return !(p2 < p1);
-}
-
-bool
-operator >= (const Point & p1, const Point & p2) {
-    return !(p1 < p2);
-}
-
-bool
-operator > (const Point & p1, const Point & p2) {
-    return p2 < p1;
-}
 
 bool
 operator == (const Point & p1, const Point & p2) {
-    return !(p1 < p2) && !(p2 < p1);
+    return std::abs(p1.x - p2.x) <= 0.001 && std::abs(p1.y - p2.y) <= 0.001;
 }
+
 
 bool
 operator != (const Point & p1, const Point & p2) {
     return !(p1 == p2);
+}
+
+bool
+operator < (const Point & p1, const Point & p2) {
+    if (p1 == p2) return false;
+    if (std::abs(p1.y - p2.y) <= 0.001) {
+        return p1.x < p2.x;
+    } else {
+        return p1.y < p2.y;
+    }
+}
+
+bool
+operator > (const Point & p1, const Point & p2) {
+    if (p1 == p2) return false;
+    if (std::abs(p1.y - p2.y) <= 0.001) {
+        return p1.x > p2.x;
+    } else {
+        return p1.y > p2.y;
+    }
+}
+
+bool
+operator <= (const Point & p1, const Point & p2) {
+    return p2 < p1 || p1 == p2;
+}
+
+bool
+operator >= (const Point & p1, const Point & p2) {
+    return p1 > p2 || p1 == p2;
 }
 
 bool
@@ -63,7 +85,7 @@ collinear(const Point & a, const Point & b, const Point & c) {
 
 // point a in between
 bool
-between(FixedReal<6> a, FixedReal<6> b, FixedReal<6> c) {
+between(double a, double b, double c) {
     return (b <= a) && (a <= c);
 }
 
@@ -82,27 +104,58 @@ struct Segment {
     }
 };
 
+std::ostream& operator<<(std::ostream & stream, const Segment & segment) {
+    stream << "[" << *segment.u << " " << *segment.d << "]";
+    return stream;
+}
 
-bool
-compareSegments(const Segment & a, const Segment & b, const FixedReal<6> y) {
+/*
+ *    ------------------------------------
+ *                   |\
+ *                   | \
+ *                   |  \
+ *                   |  *\
+ *                   |**  \
+ *                   |     \
+ *                   |      \
+ *                   |       \
+ *                   |        \
+ *                   | angle   \
+ *                   |          \
+ */
+
+int
+compareSegments(const Segment & a, const Segment & b, const double x, const double y) {
     // find point of intersection with horisontal line y
     // (x - x1) * (y2 - y1) = (x2 - x1) * (y - y1)
-    FixedReal<6> a_x = (a.u->y == a.d->y) ? a.u->x :
+    double a_x = std::abs(a.u->y - a.d->y) < 0.001 ? a.u->x :
                  (y - a.u->y) * (a.d->x - a.u->x) / (a.d->y - a.u->y) + a.u->x;
-    FixedReal<6> b_x = (b.u->y == b.d->y) ? b.u->x :
+    double b_x = std::abs(b.u->y - b.d->y) < 0.001 ? b.u->x :
                  (y - b.u->y) * (b.d->x - b.u->x) / (b.d->y - b.u->y) + b.u->x;
-    if (a_x == b_x) { // a and b from common point on y
+    if (std::abs(a_x - b_x) < 0.001) { // a and b from common point on y
         // compare angles
-        if (a.d->y == y) { // if a horisontal, b can't be horisontal, so its angle less, b < a
-            return false;
-        } else if (b.d->y == y) { // if b horisontal, a can't be horisontal, so its angle less, a < b
-            return true;
+        if (std::abs(y - a.d->y) < 0.001 && std::abs(y - b.d->y) < 0.001) {
+            return 0;
+        } else if (std::abs(y - a.d->y) < 0.001) { // if a horisontal, b can't be horisontal, so its angle less, b < a
+            return 1;
+        } else if (std::abs(y - b.d->y) < 0.001) { // if b horisontal, a can't be horisontal, so its angle less, a < b
+            return -1;
         }
-        FixedReal<6> a_tg = (a.d->x - a_x) / (a.d->y - y);
-        FixedReal<6> b_tg = (b.d->x - b_x) / (b.d->y - y);
-        return a_tg < b_tg;
+
+        int res;
+        if (a_x <= x) {
+            double a_tg = (a.d->x - a_x) / (y - a.d->y);
+            double b_tg = (b.d->x - b_x) / (y - b.d->y); // delta y will be always positive
+            res = std::abs(a_tg - b_tg) < 0.001 ? 0 : a_tg < b_tg ? -1 : 1;
+        } else {
+            double a_tg = (a.u->x - a_x) / (a.u->y - y);
+            double b_tg = (b.u->x - b_x) / (b.u->y - y); // delta y will be always positive
+            res = std::abs(a_tg - b_tg) < 0.001 ? 0 : a_tg < b_tg ? -1 : 1;
+        }
+
+        return res;
     } else { // a and b from different points on y
-        return a_x < b_x;
+        return std::abs(a_x - b_x) < 0.001 ? 0 : (a_x < b_x) ? -1 : 1;
     }
 }
 
@@ -110,19 +163,20 @@ using Points = std::map<Point, std::unique_ptr<SegPoint>>;
 using Segments = std::vector<std::unique_ptr<Segment>>;
 struct SegmentComparator {
     bool operator() (const Segment* a, const Segment* b) {
-        return compareSegments(*a, *b, y);
+        return compareSegments(*a, *b, *x, *y) < 0;
     }
-    FixedReal<6> y = makeFixedReal(0);
+    std::shared_ptr<double> x = std::make_shared<double>(0);
+    std::shared_ptr<double> y = std::make_shared<double>(0);
 };
 using State = std::set<Segment*, SegmentComparator>;
 
 bool
 findIntersection(const Segment & sa, const Segment & sb, Point & p) {
-    FixedReal<6> cross11 = (sa.u->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.u->y - sb.u->y)*(sb.d->x - sb.u->x);
-    FixedReal<6> cross12 = (sa.d->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.d->y - sb.u->y)*(sb.d->x - sb.u->x);
-    FixedReal<6> cross22 = (sb.u->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.u->y - sa.u->y)*(sa.u->x - sa.d->x);
-    FixedReal<6> cross21 = (sb.d->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.d->y - sa.u->y)*(sa.u->x - sa.d->x);
-    if (cross11*cross12 <= makeFixedReal(0) && cross21*cross22 <= makeFixedReal(0)) {
+    double cross11 = (sa.u->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.u->y - sb.u->y)*(sb.d->x - sb.u->x);
+    double cross12 = (sa.d->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.d->y - sb.u->y)*(sb.d->x - sb.u->x);
+    double cross22 = (sb.u->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.u->y - sa.u->y)*(sa.u->x - sa.d->x);
+    double cross21 = (sb.d->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.d->y - sa.u->y)*(sa.u->x - sa.d->x);
+    if (cross11*cross12 <= 0 && cross21*cross22 <= 0) {
 //         solution of
 //
 //         x == xua + (xda - xua) ta && y == yua + (yda - yua) ta &&
@@ -181,71 +235,143 @@ void
 determineLineIntersection(Points& points,
                           State& state,
                           SegmentComparator& scmp) {
+    *scmp.x = points.begin()->first.x;
+    *scmp.y = points.begin()->first.y;
     for(Points::const_iterator it = points.begin(); it != points.end(); ++it) {
 
-        scmp.y = it->first.y;
+        LOG::INFO("Process point %", it->first);
+        //*scmp.y = it->first.y;
         std::set<Segment*> & L = it->second->L;
         std::set<Segment*> & U = it->second->U;
         std::set<Segment*> & C = it->second->C;
         State::iterator up_left = state.end();
         State::iterator up_right = state.end();
 
-        for (auto it_l = L.begin(); it_l != L.end(); ++it_l) {
-            up_right = state.erase(state.find(*it_l));
+
+        if (L.empty() && C.empty()) {
+            LOG::INFO("L && C are empty, don't remove");
+        } else {
+            LOG::SECTION sect("Remove L and C");
+            for (Segment* segment : state) {
+                LOG::DEBUG("state before deletion : %", *segment);
+            }
+            for (auto it_l = L.begin(); it_l != L.end(); ++it_l) {
+                LOG::DEBUG("remove % from state (L)", **it_l);
+                up_right = state.erase(state.find(*it_l));
+                for (Segment* segment : state) {
+                    LOG::DEBUG("state after deletion(1) : %, %", *segment, segment);
+                }
+            }
+
+            for (auto it_c = C.begin(); it_c != C.end(); ++it_c) {
+                LOG::DEBUG("remove % , % from state (C)", **it_c, *it_c);
+                State::iterator found = state.find(*it_c);
+                if (found == state.end()) {
+                    LOG::INFO("% Already deleted", **it_c, *it_c);
+                } else {
+                    up_right = state.erase(found);
+                }
+                for (Segment* segment : state) {
+                    LOG::DEBUG("state after deletion(2) : %, %", *segment, segment);
+                }
+            }
+            if (!state.empty() && up_right != state.begin()) {
+                up_left = std::prev(up_right);
+            }
+            for (Segment* segment : state) {
+                LOG::DEBUG("state after deletion : %", *segment);
+            }
         }
-        for (auto it_c = C.begin(); it_c != C.end(); ++it_c) {
-            up_right = state.erase(state.find(*it_c));
+
+
+        if (up_right != state.end()) {
+            LOG::INFO("Segment right to the last removed from L & C : %", **up_right);
+        } else {
+            LOG::INFO("Segment right to the last removed from L & C not found");
         }
-        if (!state.empty() && up_right != state.begin()) {
-            up_left = std::prev(up_right);
+        if (up_left != state.end()) {
+            LOG::INFO("Segment left to the last removed from L & C : %", **up_left);
+        } else {
+            LOG::INFO("Segment left to the last removed from L & C not found");
         }
+
+        *scmp.x = it->first.x;
+        *scmp.y = it->first.y;
 
         State::iterator it_max, it_min;
         if (U.empty() && C.empty()) {
+            LOG::INFO("U & C are empty");
             if (up_left != state.end() && up_right != state.end()) {
+                LOG::INFO("Finding intersection between up_left & up_right ...");
                 Point p;
                 if (findIntersection(**up_left, **up_right, p)) {
+                    LOG::INFO("Found intersection between up_left & up_right %", p);
                     auto inserted = points.insert(std::make_pair(p, std::make_unique<SegPoint>()));
-                    if (p > it->first) {
+                    if (inserted.second) {
+                        LOG::INFO("Found new point");
+                    }
+                    if (p >= it->first) {
+                        LOG::INFO("New intersection was not processed yet");
                         inserted.first->second->C.insert(*up_left);
                         inserted.first->second->C.insert(*up_right);
                     }
+                } else {
+                    LOG::INFO("No intersection between up_left & up_right found");
                 }
             }
         } else {
-            Segment* s_min;
-            Segment* s_max;
-            if (!U.empty()) {
-                s_max = s_min = *U.begin();
-                it_max = it_min = state.insert(*U.begin()).first;
-            } else {
-                s_max = s_min = *C.begin();
-                it_max = it_min = state.insert(*C.begin()).first;
-            }
-
-            for (auto it_u = U.begin(); it_u != U.end(); ++it_u) {
-                auto cur_it = state.insert(*it_u);
-                if (scmp(*it_u, s_min)) {
-                    it_min = cur_it.first;
-                    s_min = *it_u;
+            {
+                LOG::SECTION sect("Inserting U and C");
+                if (state.empty()) {
+                    LOG::DEBUG("state before insertion : empty");
                 }
-                if (scmp(s_max, *it_u)) {
-                    it_max = cur_it.first;
-                    s_max = *it_u;
+                for (Segment* segment : state) {
+                    LOG::DEBUG("state before insertion : %", *segment);
+                }
+                Segment* s_min;
+                Segment* s_max;
+                if (!U.empty()) {
+                    s_max = s_min = *U.begin();
+                    it_max = it_min = state.insert(*U.begin()).first;
+                } else {
+                    s_max = s_min = *C.begin();
+                    it_max = it_min = state.insert(*C.begin()).first;
                 }
 
-            }
-            for (auto it_c = C.begin(); it_c != C.end(); ++it_c) {
-                auto cur_it = state.insert(*it_c);
-                if (scmp(*it_c, s_min)) {
-                    it_min = cur_it.first;
-                    s_min = *it_c;
+                for (auto it_u = U.begin(); it_u != U.end(); ++it_u) {
+                    auto cur_it = state.insert(*it_u);
+                    LOG::DEBUG("Inserting % in state (U)", **cur_it.first);
+                    if (scmp(*it_u, s_min)) {
+                        it_min = cur_it.first;
+                        s_min = *it_u;
+                    }
+                    if (scmp(s_max, *it_u)) {
+                        it_max = cur_it.first;
+                        s_max = *it_u;
+                    }
+
                 }
-                if (scmp(s_max, *it_c)) {
-                    it_max = cur_it.first;
-                    s_max = *it_c;
+                for (auto it_c = C.begin(); it_c != C.end(); ++it_c) {
+                    auto cur_it = state.insert(*it_c);
+                    LOG::DEBUG("Inserting % in state (C)", **cur_it.first);
+                    if (scmp(*it_c, s_min)) {
+                        it_min = cur_it.first;
+                        s_min = *it_c;
+                    }
+                    if (scmp(s_max, *it_c)) {
+                        it_max = cur_it.first;
+                        s_max = *it_c;
+                    }
                 }
+
+                for (Segment* segment : state) {
+                    LOG::DEBUG("state after insertion : %", *segment);
+                }
+
             }
+
+
+
             State::iterator it_left = state.end();
             if (!state.empty() && it_min != state.begin()) {
                 it_left = std::prev(it_min);
@@ -256,25 +382,60 @@ determineLineIntersection(Points& points,
                 it_right = std::next(it_max);
             }
 
+            if (it_min == state.end()) {
+                LOG::INFO("Leftmost element from U & C : not found");
+            } else {
+                LOG::INFO("Leftmost element from U & C : %", **it_min);
+            }
+            if (it_max == state.end()) {
+                LOG::INFO("Rightmost element from U & C : not found");
+            } else {
+                LOG::INFO("Rightmost element from U & C : %", **it_max);
+            }
+            if (it_left == state.end()) {
+                LOG::INFO("Left from leftmost element from U & C : not found");
+            } else {
+                LOG::INFO("Left from leftmost element from U & C : %", **it_left);
+            }
+            if (it_right == state.end()) {
+                LOG::INFO("Right from rightmost element from U & C : not found");
+            } else {
+                LOG::INFO("Right from rightmost element from U & C : %", **it_right);
+            }
+
             if (it_left != state.end() && it_min != state.end()) {
                 Point p;
                 if (findIntersection(**it_left, **it_min, p)) {
+                    LOG::INFO("Found intersection between up_left & up_right %", p);
                     auto inserted = points.insert(std::make_pair(p, std::make_unique<SegPoint>()));
-                    if (p > it->first) {
+                    if (inserted.second) {
+                        LOG::INFO("Found new point ");
+                    }
+                    if (p >= it->first) {
+                        LOG::INFO("New intersection was not processed yet");
                         inserted.first->second->C.insert(*it_left);
                         inserted.first->second->C.insert(*it_min);
                     }
+                } else {
+                    LOG::INFO("No intersection between up_left & up_right found");
                 }
             }
 
             if (it_right != state.end() && it_max != state.end()) {
                 Point p;
                 if (findIntersection(**it_right, **it_max, p)) {
+                    LOG::INFO("Found intersection between up_left & up_right %", p);
                     auto inserted = points.insert(std::make_pair(p, std::make_unique<SegPoint>()));
-                    if (p > it->first) {
+                    if (inserted.second) {
+                        LOG::INFO("Found new point ");
+                    }
+                    if (p >= it->first) {
+                        LOG::INFO("New intersection was not processed yet");
                         inserted.first->second->C.insert(*it_right);
                         inserted.first->second->C.insert(*it_max);
                     }
+                } else {
+                    LOG::INFO("No intersection between up_left & up_right found");
                 }
             }
         }
@@ -287,7 +448,7 @@ readData(std::ifstream & ifs,
          std::vector<std::unique_ptr<Segment>> & segments) {
 
     while (1) {
-        FixedReal<6> x1, y1, x2, y2;
+        double x1, y1, x2, y2;
         ifs >> x1 >> y1 >> x2 >> y2;
         if (ifs.eof()) break;
 
@@ -337,6 +498,6 @@ int main(int argc, char** argv)
             ofs << it->first.x << " " << it->first.y << std::endl;
         }
     }
-
-    test();
+    ifs.close();
+    ofs.close();
 }
