@@ -311,11 +311,12 @@ readData(std::ifstream & ifs,
 
 int main(int argc, char** argv)
 {
-    if (argc != 2) {
-        std::cout << "Launch : " << argv[0] << " file.txt" << std::endl;
+    if (argc != 3) {
+        std::cout << "Launch : " << argv[0] << " in.txt out.txt" << std::endl;
         exit(1);
     }
     std::ifstream ifs(argv[1]);
+    std::ofstream ofs(argv[2]);
 
     if (!ifs.is_open()) {
         std::cout << "Can't open file" << std::endl;
@@ -333,7 +334,7 @@ int main(int argc, char** argv)
 
     for(Points::const_iterator it = points.begin(); it != points.end(); ++it) {
         if (!it->second->C.empty()) {
-            std::cout << it->first.x << " " << it->first.y << std::endl;
+            ofs << it->first.x << " " << it->first.y << std::endl;
         }
     }
 
