@@ -8,6 +8,8 @@
 #include <map>
 #include <cassert>
 
+#include "fixedreal.h"
+
 struct Segment;
 
 struct Point {
@@ -334,4 +336,5 @@ int main(int argc, char** argv)
         }
     }
 
+    test();
 }
