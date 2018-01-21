@@ -13,10 +13,11 @@
 struct Segment;
 
 struct Point {
-    explicit Point (double x = 0, double y = 0) :
+    explicit Point (FixedReal<6> x = makeFixedReal(0),
+                    FixedReal<6> y = makeFixedReal(0)) :
         x(x), y(y)
     {}
-    double x, y;
+    FixedReal<6> x, y;
 };
 struct SegPoint {
 
@@ -62,7 +63,7 @@ collinear(const Point & a, const Point & b, const Point & c) {
 
 // point a in between
 bool
-between(double a, double b, double c) {
+between(FixedReal<6> a, FixedReal<6> b, FixedReal<6> c) {
     return (b <= a) && (a <= c);
 }
 
@@ -83,12 +84,12 @@ struct Segment {
 
 
 bool
-compareSegments(const Segment & a, const Segment & b, const double y) {
+compareSegments(const Segment & a, const Segment & b, const FixedReal<6> y) {
     // find point of intersection with horisontal line y
     // (x - x1) * (y2 - y1) = (x2 - x1) * (y - y1)
-    double a_x = (a.u->y == a.d->y) ? a.u->x :
+    FixedReal<6> a_x = (a.u->y == a.d->y) ? a.u->x :
                  (y - a.u->y) * (a.d->x - a.u->x) / (a.d->y - a.u->y) + a.u->x;
-    double b_x = (b.u->y == b.d->y) ? b.u->x :
+    FixedReal<6> b_x = (b.u->y == b.d->y) ? b.u->x :
                  (y - b.u->y) * (b.d->x - b.u->x) / (b.d->y - b.u->y) + b.u->x;
     if (a_x == b_x) { // a and b from common point on y
         // compare angles
@@ -97,8 +98,8 @@ compareSegments(const Segment & a, const Segment & b, const double y) {
         } else if (b.d->y == y) { // if b horisontal, a can't be horisontal, so its angle less, a < b
             return true;
         }
-        double a_tg = (a.d->x - a_x) / (a.d->y - y);
-        double b_tg = (b.d->x - b_x) / (b.d->y - y);
+        FixedReal<6> a_tg = (a.d->x - a_x) / (a.d->y - y);
+        FixedReal<6> b_tg = (b.d->x - b_x) / (b.d->y - y);
         return a_tg < b_tg;
     } else { // a and b from different points on y
         return a_x < b_x;
@@ -111,17 +112,17 @@ struct SegmentComparator {
     bool operator() (const Segment* a, const Segment* b) {
         return compareSegments(*a, *b, y);
     }
-    double y = 0;
+    FixedReal<6> y = makeFixedReal(0);
 };
 using State = std::set<Segment*, SegmentComparator>;
 
 bool
 findIntersection(const Segment & sa, const Segment & sb, Point & p) {
-    double cross11 = (sa.u->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.u->y - sb.u->y)*(sb.d->x - sb.u->x);
-    double cross12 = (sa.d->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.d->y - sb.u->y)*(sb.d->x - sb.u->x);
-    double cross22 = (sb.u->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.u->y - sa.u->y)*(sa.u->x - sa.d->x);
-    double cross21 = (sb.d->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.d->y - sa.u->y)*(sa.u->x - sa.d->x);
-    if (cross11*cross12 <= 0 && cross21*cross22 <= 0) {
+    FixedReal<6> cross11 = (sa.u->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.u->y - sb.u->y)*(sb.d->x - sb.u->x);
+    FixedReal<6> cross12 = (sa.d->x - sb.u->x)*(sb.d->y - sb.u->y) - (sa.d->y - sb.u->y)*(sb.d->x - sb.u->x);
+    FixedReal<6> cross22 = (sb.u->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.u->y - sa.u->y)*(sa.u->x - sa.d->x);
+    FixedReal<6> cross21 = (sb.d->x - sa.u->x)*(sa.u->y - sa.d->y) - (sb.d->y - sa.u->y)*(sa.u->x - sa.d->x);
+    if (cross11*cross12 <= makeFixedReal(0) && cross21*cross22 <= makeFixedReal(0)) {
 //         solution of
 //
 //         x == xua + (xda - xua) ta && y == yua + (yda - yua) ta &&
@@ -286,7 +287,7 @@ readData(std::ifstream & ifs,
          std::vector<std::unique_ptr<Segment>> & segments) {
 
     while (1) {
-        double x1, y1, x2, y2;
+        FixedReal<6> x1, y1, x2, y2;
         ifs >> x1 >> y1 >> x2 >> y2;
         if (ifs.eof()) break;
 

@@ -2,6 +2,7 @@
 #define FIXEDREAL_H
 
 #include <cstdint>
+#include <istream>
 #include <ostream>
 #include <sstream>
 #include <type_traits>
@@ -31,7 +32,7 @@ struct FixedReal
 {
     using Int = int_fast64_t;
 
-    explicit FixedReal(Int internalValue) : value(internalValue) {}
+    explicit FixedReal(Int internalValue = 0) : value(internalValue) {}
     std::string toString() const {
         std::stringstream buffer;
         this->write(buffer);
@@ -101,6 +102,45 @@ FixedReal<Frac> operator+(const FixedReal<Frac>& a, const FixedReal<Frac>& b) {
 template <unsigned Frac>
 FixedReal<Frac> operator-(const FixedReal<Frac>& a, const FixedReal<Frac>& b) {
     return FixedReal<Frac>(a.getInternalValue() - b.getInternalValue());
+}
+
+template <unsigned Frac>
+bool operator==(const FixedReal<Frac>& a, const FixedReal<Frac>& b) {
+    return a.getInternalValue() == b.getInternalValue();
+}
+
+template <unsigned Frac>
+bool operator!=(const FixedReal<Frac>& a, const FixedReal<Frac>& b) {
+    return a.getInternalValue() != b.getInternalValue();
+}
+
+
+template <unsigned Frac>
+bool operator<(const FixedReal<Frac>& a, const FixedReal<Frac>& b) {
+    return a.getInternalValue() < b.getInternalValue();
+}
+
+template <unsigned Frac>
+bool operator>(const FixedReal<Frac>& a, const FixedReal<Frac>& b) {
+    return a.getInternalValue() > b.getInternalValue();
+}
+
+template <unsigned Frac>
+bool operator<=(const FixedReal<Frac>& a, const FixedReal<Frac>& b) {
+    return a.getInternalValue() <= b.getInternalValue();
+}
+
+template <unsigned Frac>
+bool operator>=(const FixedReal<Frac>& a, const FixedReal<Frac>& b) {
+    return a.getInternalValue() >= b.getInternalValue();
+}
+
+template <unsigned Frac>
+std::istream& operator>>(std::istream& is, FixedReal<Frac>& real) {
+    double value = 0;
+    is >> value;
+    real = makeFixedReal(value);
+    return is;
 }
 
 template <unsigned Frac>
